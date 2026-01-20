@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>擬真語音互動測驗：The Great Wall: A Dragon of Stone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Confetti Library for Celebration -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Roboto', 'Noto Sans TC', sans-serif;
+            background-color: #f0f2f5;
+        }
+        
+        /* Smooth Highlighting for Karaoke Mode */
+        .highlight-text {
+            background-color: #fef3c7; /* amber-100 */
+            color: #d97706; /* amber-600 */
+            padding: 2px 4px;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        /* Quiz Styles */
+        .quiz-option {
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .quiz-option:hover:not(.disabled) {
+            background-color: #f3f4f6;
+            border-color: #d1d5db;
+        }
+        .quiz-option.correct {
+            background-color: #ecfdf5 !important;
+            border-color: #10b981 !important;
+            color: #065f46;
+        }
+        .quiz-option.wrong {
+            background-color: #fef2f2 !important;
+            border-color: #ef4444 !important;
+            color: #991b1b;
+            opacity: 0.8;
+        }
+        .quiz-option.disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .explanation-box {
+            display: none; /* Hidden by default */
+            margin-top: 10px;
+            font-size: 0.95em;
+            color: #4b5563;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #6366f1;
+            background-color: #f8fafc;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Interactive Vocabulary Styles */
+        .vocab-word {
+            border-bottom: 2px dotted #818cf8;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            color: #1e40af;
+            font-weight: 500;
+        }
+        .vocab-word:hover {
+            background-color: #e0e7ff;
+            color: #1e3a8a;
+        }
+        .vocab-word:active {
+            transform: scale(0.95);
+        }
+
+        /* Tooltip Style */
+        .vocab-tooltip {
+            visibility: hidden;
+            width: max-content;
+            min-width: 120px;
+            background-color: #1f2937;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px 12px;
+            position: absolute;
+            z-index: 100;
+            bottom: 140%; /* Position above */
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.2s;
+            font-size: 0.9rem;
+            pointer-events: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            line-height: 1.4;
+        }
+        .vocab-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -6px;
+            border-width: 6px;
+            border-style: solid;
+            border-color: #1f2937 transparent transparent transparent;
+        }
+        .vocab-word:hover .vocab-tooltip {
+            visibility: visible;
+            opacity: 1;
+            transform: translateX(-50%) translateY(-5px);
+        }
+        
+        /* POS Tag Style in Tooltip */
+        .pos-tag {
+            font-size: 0.75em;
+            text-transform: uppercase;
+            background-color: #4f46e5;
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-right: 6px;
+            font-weight: bold;
+            color: #e0e7ff;
+        }
+
+        /* Translation Text Style */
+        .translation-text {
+            display: block;
+            font-size: 0.9em;
+            color: #6b7280;
+            margin-top: 4px;
+            margin-bottom: 12px;
+            padding-left: 8px;
+            border-left: 3px solid #e5e7eb;
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        .translation-text.hidden {
+            display: none;
+        }
+        
+        /* Audio Wave Animation */
+        .equalizer {
+            display: flex;
+            align-items: flex-end;
+            height: 20px;
+            gap: 2px;
+        }
+        .bar {
+            width: 4px;
+            background: #fff;
+            animation: bounce 0ms infinite ease-in-out alternate;
+        }
+        .playing .bar {
+            animation-duration: 400ms;
+        }
+        .playing .bar:nth-child(1) { animation-delay: -0.2s; }
+        .playing .bar:nth-child(2) { animation-delay: -0.4s; }
+        .playing .bar:nth-child(3) { animation-delay: -0.6s; }
+        .playing .bar:nth-child(4) { animation-delay: -0.8s; }
+        @keyframes bounce {
+            0% { height: 3px; opacity: 0.5; }
+            100% { height: 20px; opacity: 1; }
+        }
+        
+        .hidden-content {
+            filter: blur(12px);
+            user-select: none;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen pb-12">
+
+    <!-- Navbar / Audio Player Sticky Header -->
+    <div class="sticky top-0 z-50 bg-indigo-700 text-white shadow-xl transition-all duration-300" id="audio-player-bar">
+        <div class="max-w-4xl mx-auto px-4 py-3">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-3">
+                
+                <!-- Left: Title & Status -->
+                <div class="flex items-center gap-3 w-full md:w-auto justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
+                            <i class="fas fa-headphones-alt text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-sm font-bold text-indigo-100 uppercase tracking-wide">Listening Quiz</h1>
+                            <div class="text-xs text-indigo-200 flex items-center gap-1" id="voice-indicator">
+                                <i class="fas fa-robot"></i> Initializing Voice...
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Mobile Play Button -->
+                    <button onclick="togglePlay()" class="md:hidden w-10 h-10 bg-white text-indigo-700 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition">
+                        <i class="fas fa-play" id="mobile-play-icon"></i>
+                    </button>
+                </div>
+
+                <!-- Center: Controls -->
+                <div class="flex items-center gap-4">
+                    <!-- Rewind -->
+                    <button onclick="restartAudio()" class="text-indigo-200 hover:text-white transition" title="Restart">
+                        <i class="fas fa-step-backward"></i>
+                    </button>
+                    
+                    <!-- Main Play Button (Desktop) -->
+                    <button onclick="togglePlay()" class="hidden md:flex w-12 h-12 bg-white text-indigo-700 rounded-full shadow-lg items-center justify-center hover:scale-105 transition hover:shadow-white/20">
+                        <i class="fas fa-play text-xl ml-1" id="main-play-icon"></i>
+                    </button>
+
+                    <!-- Visualizer -->
+                    <div class="equalizer" id="visualizer">
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                    </div>
+                </div>
+
+                <!-- Right: Settings -->
+                <div class="flex items-center gap-2 text-sm w-full md:w-auto justify-center md:justify-end border-t md:border-t-0 border-indigo-600 pt-2 md:pt-0 mt-2 md:mt-0">
+                    
+                    <!-- Translation Toggle -->
+                    <button onclick="toggleTranslation()" id="toggle-trans-btn" class="flex items-center gap-2 bg-indigo-800 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold transition shadow border border-indigo-500">
+                        <i class="fas fa-language"></i> <span>翻譯</span>
+                    </button>
+
+                    <!-- Toggle Text -->
+                    <button onclick="toggleText()" id="toggle-text-btn" class="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg font-bold transition shadow">
+                        <i class="fas fa-eye-slash"></i> <span>Hide Text</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Progress Bar -->
+        <div class="w-full bg-indigo-900 h-1.5">
+            <div id="progress-bar" class="h-full bg-amber-400 w-0 transition-all duration-300"></div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-3xl mx-auto p-4 md:p-6 space-y-8">
+        
+        <!-- Image Card -->
+        <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">
+             <!-- Image with fallback -->
+             <div class="w-full h-64 md:h-80 bg-gray-200 relative overflow-hidden group">
+                <img 
+                    src="images/great_wall.jpg" 
+                    alt="The majestic Great Wall of China winding through mountains" 
+                    class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1508804185872-d7badad00f7d?q=80&w=1200&auto=format&fit=crop';"
+                >
+                
+                <!-- Dark Gradient Overlay for better text readability -->
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
+
+                <div class="absolute bottom-4 left-4 right-4 text-white">
+                    <div class="flex items-center gap-2 text-sm font-medium opacity-90 backdrop-blur-sm bg-black/30 w-fit px-3 py-1 rounded-full">
+                        <i class="fas fa-monument"></i> Listening Focus: The Origin of the Great Wall
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Text Content Area -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 md:p-8 border border-gray-200 relative">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 pb-4 border-b">The Great Wall: A Dragon of Stone</h2>
+            
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 text-sm text-blue-700">
+                <i class="fas fa-mouse-pointer mr-1"></i> <strong>Tip:</strong> 點擊單字可聽發音並查看解釋 (Click words to hear pronunciation)。
+            </div>
+
+            <!-- Hidden Message Overlay -->
+            <div id="hidden-overlay" class="hidden absolute inset-0 bg-white/90 z-10 flex flex-col items-center justify-center rounded-2xl backdrop-blur-sm transition-all">
+                <div class="bg-indigo-100 p-6 rounded-full mb-4">
+                    <i class="fas fa-ear-listen text-4xl text-indigo-600"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">Listen Carefully</h3>
+                <p class="text-gray-600 mb-6 text-center max-w-sm">The text is hidden to challenge your listening skills. Try to answer the questions by listening only!</p>
+                <button onclick="toggleText()" class="bg-indigo-600 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition shadow-lg">
+                    Show Text
+                </button>
+            </div>
+
+            <!-- Article Container (Sentences will be injected here via JS for control) -->
+            <div id="article-display" class="prose max-w-none text-gray-700 text-lg leading-relaxed space-y-4">
+                <!-- Content injected by JS -->
+            </div>
+        </div>
+
+        <!-- Quiz Area -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 md:p-8 border border-gray-200">
+            <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                <span class="bg-indigo-100 text-indigo-700 w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">
+                    <i class="fas fa-pen"></i>
+                </span>
+                Comprehension Quiz
+            </h3>
+            
+            <form id="quizForm" class="space-y-8">
+                <!-- Questions will be generated here -->
+            </form>
+
+            <div class="mt-8 pt-6 border-t border-gray-100 flex flex-col items-center">
+                <button type="button" onclick="showFinalScore()" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-bold py-3 px-10 rounded-full shadow-lg transition transform hover:-translate-y-1 active:scale-95">
+                    Show Final Score
+                </button>
+                
+                <div id="score-card" class="hidden mt-6 text-center w-full bg-indigo-50 p-6 rounded-xl border border-indigo-100 animate-fade-in">
+                    <p class="text-gray-500 text-sm uppercase font-bold tracking-wider">Your Result</p>
+                    <div class="text-5xl font-extrabold text-indigo-600 my-2" id="final-score">0</div>
+                    <p id="feedback-msg" class="text-gray-700 font-medium"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Data & State ---
+        
+        // Structured Article Data with Translations
+        const articleData = [
+            { en: "The Great Wall of China is one of the most famous structures in the world.", zh: "中國萬里長城是世界上最著名的建築之一。" },
+            { en: "Stretching thousands of kilometers across mountains and deserts, it looks like a giant stone dragon winding through the landscape.", zh: "它綿延數千公里，穿越山脈和沙漠，看起來就像一條巨石龍蜿蜒在風景之中。" },
+            { en: "There is a popular myth that it is the only man-made object visible from space with the naked eye.", zh: "有一個流行的迷思說它是唯一可以用肉眼從太空看到的人造物體。" },
+            { en: "However, astronauts have confirmed that this is not true; it is too narrow to be seen from such a great distance.", zh: "然而，太空人已經證實這不是真的；它太窄了，無法從如此遠的距離看到。" },
+            { en: "Despite this myth, the wall remains an incredible feat of ancient engineering.", zh: "儘管有這個迷思，長城仍然是古代工程的驚人壯舉。" },
+            
+            { en: "Many people think the Great Wall was built all at once, but it was actually constructed over many centuries.", zh: "許多人認為長城是一次建成的，但實際上它是歷經許多世紀建造的。" },
+            { en: "Its story begins during the Warring States Period, more than 2,000 years ago.", zh: "它的故事始於兩千多年前的戰國時期。" },
+            { en: "At that time, China was divided into several smaller states that fought against each other.", zh: "當時，中國分裂成幾個互相爭戰的小國。" },
+            { en: "These states built separate walls to defend their borders from enemies.", zh: "這些國家建造了獨立的牆來防禦敵人侵犯邊界。" },
+            { en: "It wasn't until 221 BC that the walls were connected.", zh: "直到西元前221年，這些牆才被連接起來。" },
+            
+            { en: "Qin Shi Huang, the first emperor of a unified China, wanted to protect his new empire.", zh: "統一中國的第一位皇帝秦始皇，想要保護他的新帝國。" },
+            { en: "His main enemies were the nomadic tribes from the north, such as the Xiongnu.", zh: "他的主要敵人是來自北方的遊牧部落，例如匈奴。" },
+            { en: "He ordered his general, Meng Tian, to connect the existing walls and build new sections.", zh: "他命令大將蒙恬連接現有的城牆並建造新的路段。" },
+            { en: "This was a massive project that required hundreds of thousands of workers, including soldiers, peasants, and prisoners.", zh: "這是一個巨大的工程，需要數十萬名工人，包括士兵、農民和囚犯。" },
+            { en: "Conditions were harsh, and many died during construction, earning the wall the nickname \"the longest cemetery on earth.\"", zh: "條件非常惡劣，許多人在建造過程中死亡，使長城被稱為「地球上最長的墓地」。" },
+            
+            { en: "Most of the Great Wall that tourists see today was built much later, during the Ming Dynasty (1368-1644).", zh: "遊客今天看到的大部分長城是在更晚的明朝（1368-1644）建造的。" },
+            { en: "Unlike the earlier walls which were made of rammed earth and wood, the Ming wall was built with bricks and stone.", zh: "與早期用夯土和木頭建造的城牆不同，明長城是用磚石建造的。" },
+            { en: "This made it much stronger and more durable.", zh: "這使得它更加堅固耐用。" },
+            { en: "The Ming rulers added watchtowers, which served as lookout points and shelters for soldiers.", zh: "明朝統治者增加了烽火台，作為瞭望點和士兵的避難所。" },
+            { en: "They also used a clever communication system: smoke signals by day and fire by night to send messages quickly along the wall.", zh: "他們還使用了一套聰明的通訊系統：白天用煙霧信號，晚上用火光，沿著城牆快速傳遞訊息。" },
+            
+            { en: "Today, the Great Wall is no longer used for defense.", zh: "如今，萬里長城已不再用於防禦。" },
+            { en: "Instead, it stands as a symbol of Chinese history and the perseverance of its people.", zh: "取而代之的是，它作為中國歷史和人民毅力的象徵而矗立。" },
+            { en: "While some parts are crumbling and disappearing due to erosion and human activity, other sections are well-preserved.", zh: "雖然有些部分因侵蝕和人類活動而崩塌消失，但其他部分保存完好。" },
+            { en: "It is a UNESCO World Heritage site and a reminder of the immense effort humans can achieve.", zh: "它是聯合國教科文組織的世界遺產，提醒著我們人類可以達成巨大的成就。" },
+            { en: "Walking on the wall today is like walking through history itself.", zh: "今天走在長城上，就像走在歷史之中。" }
+        ];
+
+        const quizData = [
+            { id: 'q1', q: "1. What is a common myth about the Great Wall mentioned in the text?", options: {A: "It was built by aliens.", B: "It is visible from space with the naked eye.", C: "It never ends.", D: "It is made of gold."}, ans: 'B', expl: "文章提到一個常見的迷思是長城可以從太空用肉眼看到 (visible from space with the naked eye)，但這不是真的。" },
+            { id: 'q2', q: "2. When did the story of the wall's construction begin?", options: {A: "During the Ming Dynasty.", B: "In 2022.", C: "During the Warring States Period.", D: "After the Xiongnu attacked."}, ans: 'C', expl: "第二段提到故事始於兩千多年前的戰國時期 (Warring States Period)。" },
+            { id: 'q3', q: "3. Who was the first emperor to connect the walls?", options: {A: "Meng Tian.", B: "Confucius.", C: "Qin Shi Huang.", D: "The Ming Emperor."}, ans: 'C', expl: "文中提到統一中國的首位皇帝秦始皇 (Qin Shi Huang) 下令連接城牆。" },
+            { id: 'q4', q: "4. What was the main purpose of the Great Wall?", options: {A: "To mark the border for trade.", B: "To defend against northern nomadic tribes.", C: "To provide jobs for peasants.", D: "To look beautiful."}, ans: 'B', expl: "主要目的是為了防禦來自北方的遊牧部落 (defend... from the north)，如匈奴。" },
+            { id: 'q5', q: "5. Why is the wall sometimes called 'the longest cemetery on earth'?", options: {A: "It was built near a graveyard.", B: "Many workers died during its construction.", C: "It looks like a tomb.", D: "It is very quiet there."}, ans: 'B', expl: "因為建造條件惡劣，許多工人在過程中死亡 (many died during construction)。" },
+            { id: 'q6', q: "6. Which dynasty built the sections of the wall most tourists see today?", options: {A: "The Qin Dynasty.", B: "The Han Dynasty.", C: "The Ming Dynasty.", D: "The Qing Dynasty."}, ans: 'C', expl: "第四段開頭提到遊客今天看到的大部分長城是明朝 (Ming Dynasty) 建造的。" },
+            { id: 'q7', q: "7. How was the Ming wall different from earlier walls?", options: {A: "It was shorter.", B: "It was made of bricks and stone.", C: "It was made of wood only.", D: "It was invisible."}, ans: 'B', expl: "明長城是用磚石 (bricks and stone) 建造的，而早期是用夯土和木頭。" },
+            { id: 'q8', q: "8. How did soldiers communicate along the wall?", options: {A: "By running very fast.", B: "Using pigeons.", C: "Using smoke signals and fire.", D: "Shouting loudly."}, ans: 'C', expl: "他們使用白天煙霧 (smoke signals)、晚上火光 (fire) 的通訊系統。" },
+            { id: 'q9', q: "9. What is the current status of the Great Wall?", options: {A: "It is used for war.", B: "It is completely destroyed.", C: "It is a UNESCO World Heritage site.", D: "It is closed to everyone."}, ans: 'C', expl: "最後一段提到它是聯合國教科文組織的世界遺產 (UNESCO World Heritage site)。" },
+            { id: 'q10', q: "10. What does the Great Wall symbolize today?", options: {A: "Chinese history and perseverance.", B: "Modern technology.", C: "Space exploration.", D: "Economic trade."}, ans: 'A', expl: "它象徵著中國歷史和人民的毅力 (symbol of Chinese history and the perseverance)。" }
+        ];
+
+        // Extended Vocabulary Dictionary with Part of Speech (POS)
+        const vocabulary = {
+            "structures": { pos: "n.", trans: "建築物；結構" },
+            "stretching": { pos: "v.", trans: "延伸" },
+            "landscape": { pos: "n.", trans: "風景；地貌" },
+            "myth": { pos: "n.", trans: "迷思；神話" },
+            "visible": { pos: "adj.", trans: "可見的" },
+            "naked": { pos: "adj.", trans: "裸露的 (naked eye: 肉眼)" },
+            "astronauts": { pos: "n.", trans: "太空人" },
+            "feat": { pos: "n.", trans: "壯舉；功績" },
+            "engineering": { pos: "n.", trans: "工程" },
+            "constructed": { pos: "v.", trans: "建造" },
+            "centuries": { pos: "n.", trans: "世紀" },
+            "warring": { pos: "adj.", trans: "交戰的" },
+            "divided": { pos: "v.", trans: "分裂；分開" },
+            "separate": { pos: "adj.", trans: "分開的；獨立的" },
+            "defend": { pos: "v.", trans: "防禦" },
+            "borders": { pos: "n.", trans: "邊界" },
+            "unified": { pos: "adj.", trans: "統一的" },
+            "empire": { pos: "n.", trans: "帝國" },
+            "nomadic": { pos: "adj.", trans: "遊牧的" },
+            "tribes": { pos: "n.", trans: "部落" },
+            "general": { pos: "n.", trans: "將軍" },
+            "massive": { pos: "adj.", trans: "巨大的" },
+            "peasants": { pos: "n.", trans: "農民" },
+            "harsh": { pos: "adj.", trans: "惡劣的；嚴酷的" },
+            "cemetery": { pos: "n.", trans: "墓地" },
+            "dynasty": { pos: "n.", trans: "朝代" },
+            "rammed": { pos: "adj.", trans: "夯實的 (rammed earth: 夯土)" },
+            "bricks": { pos: "n.", trans: "磚塊" },
+            "durable": { pos: "adj.", trans: "耐用的" },
+            "watchtowers": { pos: "n.", trans: "瞭望塔；烽火台" },
+            "communication": { pos: "n.", trans: "通訊" },
+            "signals": { pos: "n.", trans: "信號" },
+            "symbol": { pos: "n.", trans: "象徵" },
+            "perseverance": { pos: "n.", trans: "毅力" },
+            "crumbling": { pos: "v.", trans: "崩塌；破碎" },
+            "erosion": { pos: "n.", trans: "侵蝕" },
+            "heritage": { pos: "n.", trans: "遺產" },
+            "immense": { pos: "adj.", trans: "巨大的" }
+        };
+
+        let synth = window.speechSynthesis;
+        let sentences = [];
+        let currentSentenceIndex = 0;
+        let isPlaying = false;
+        let textHidden = false;
+        let showTranslation = false;
+        let selectedVoice = null;
+        let userScore = 0; 
+        
+        // --- Web Audio API Context ---
+        let audioCtx;
+
+        function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+        
+        // --- Synthesized Sound Effects (No External Files Needed) ---
+        function playCorrectSound() {
+            initAudioContext();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime); 
+            osc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.1); 
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function playFailSound() {
+            initAudioContext();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime); 
+            osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.3); 
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // --- Initialization ---
+        window.onload = function() {
+            renderArticle();
+            renderQuiz();
+            initVoice();
+        };
+
+        // --- 1. Smart Voice Engine (Neural Voice Engine) ---
+        function initVoice() {
+            const voiceStatus = document.getElementById('voice-indicator');
+            
+            const loadVoices = () => {
+                const voices = synth.getVoices();
+                if (voices.length > 0) {
+                    selectedVoice = voices.find(v => v.name === 'Google US English') || 
+                                    voices.find(v => v.name.includes('Microsoft') && v.name.includes('Natural') && v.lang.includes('en-US')) ||
+                                    voices.find(v => (v.name.includes('Siri') || v.name.includes('Enhanced') || v.name.includes('Premium')) && v.lang.includes('en-US')) ||
+                                    voices.find(v => v.name === 'Samantha') || 
+                                    voices.find(v => v.lang === 'en-US');
+                    
+                    if (selectedVoice) {
+                        let displayName = selectedVoice.name
+                            .replace('Microsoft', '')
+                            .replace('Google', '')
+                            .replace('English', '')
+                            .replace(' United States', '')
+                            .replace('(Natural) - Online', 'Natural')
+                            .trim();
+                        voiceStatus.innerHTML = `<i class="fas fa-check-circle text-green-300"></i> Voice: ${displayName.substring(0, 20)}`;
+                    } else {
+                        voiceStatus.innerHTML = `<i class="fas fa-exclamation-circle text-yellow-300"></i> Standard Voice`;
+                    }
+                }
+            };
+            loadVoices();
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = loadVoices;
+            }
+        }
+
+        // --- 2. Render Article with Structured Data ---
+        function renderArticle() {
+            const displayArea = document.getElementById('article-display');
+            displayArea.innerHTML = '';
+            
+            let p = document.createElement('p');
+            displayArea.appendChild(p);
+            
+            sentences = []; // Reset sentences array
+            
+            articleData.forEach((item, index) => {
+                const spanEn = document.createElement('span');
+                
+                // Process words for dictionary lookup
+                spanEn.innerHTML = processWords(item.en);
+                
+                spanEn.id = `sent-${index}`;
+                spanEn.className = 'cursor-pointer hover:bg-gray-100 rounded transition leading-loose mr-1';
+                spanEn.onclick = (e) => {
+                    // Prevent playing full sentence if user clicked a vocab word
+                    if (e.target.classList.contains('vocab-word') || e.target.parentElement.classList.contains('vocab-word')) return;
+                    playFromSentence(index);
+                };
+                
+                // Add Sentence
+                p.appendChild(spanEn);
+                sentences.push({ text: item.en, id: `sent-${index}` });
+
+                // Add Translation (Hidden by default)
+                const divZh = document.createElement('div');
+                divZh.className = 'translation-text hidden';
+                divZh.innerText = item.zh;
+                p.appendChild(divZh);
+
+                // Paragraph break heuristic (every 5 sentences approx)
+                if(index > 0 && (index + 1) % 5 === 0) {
+                     p = document.createElement('p');
+                     displayArea.appendChild(p);
+                }
+            });
+        }
+
+        // Wrap words with definitions in a span
+        function processWords(text) {
+            const words = text.split(' ');
+            return words.map(word => {
+                const cleanWord = word.replace(/[.,!?;:()"]/g, "").toLowerCase();
+                const originalWord = word;
+                
+                if (vocabulary[cleanWord]) {
+                    const data = vocabulary[cleanWord];
+                    return `<span class="vocab-word" onclick="speakAndShowDef(event, '${cleanWord}')">${originalWord}<span class="vocab-tooltip"><span class="pos-tag">${data.pos}</span>${data.trans}</span></span>`;
+                }
+                return originalWord;
+            }).join(' ');
+        }
+        
+        function speakAndShowDef(e, word) {
+            e.stopPropagation(); // Stop the event from bubbling up to sentence click
+            
+            // Speak the word
+            synth.cancel(); // Stop current speech
+            const utterance = new SpeechSynthesisUtterance(word);
+            if (selectedVoice) utterance.voice = selectedVoice;
+            utterance.rate = 0.9; // Slower for single word
+            synth.speak(utterance);
+        }
+
+        function toggleTranslation() {
+            showTranslation = !showTranslation;
+            const transElements = document.querySelectorAll('.translation-text');
+            const btn = document.getElementById('toggle-trans-btn');
+            
+            transElements.forEach(el => {
+                if(showTranslation) el.classList.remove('hidden');
+                else el.classList.add('hidden');
+            });
+
+            if(showTranslation) {
+                btn.classList.add('bg-indigo-600', 'ring-2', 'ring-indigo-300');
+                btn.innerHTML = '<i class="fas fa-check"></i> <span>隱藏翻譯</span>';
+            } else {
+                btn.classList.remove('bg-indigo-600', 'ring-2', 'ring-indigo-300');
+                btn.innerHTML = '<i class="fas fa-language"></i> <span>顯示翻譯</span>';
+            }
+        }
+
+        function togglePlay() {
+            if (isPlaying) {
+                pauseAudio();
+            } else {
+                playAudio();
+            }
+        }
+
+        function playAudio() {
+            isPlaying = true;
+            updatePlayBtn(true);
+            document.getElementById('visualizer').classList.add('playing');
+            
+            if (currentSentenceIndex >= sentences.length) {
+                currentSentenceIndex = 0;
+            }
+            speakSentence(currentSentenceIndex);
+        }
+
+        function speakSentence(index) {
+            if (!isPlaying || index >= sentences.length) {
+                if (index >= sentences.length) {
+                    isPlaying = false;
+                    updatePlayBtn(false);
+                    document.getElementById('visualizer').classList.remove('playing');
+                    currentSentenceIndex = 0;
+                    highlightSentence(-1);
+                }
+                return;
+            }
+
+            currentSentenceIndex = index;
+            highlightSentence(index);
+            updateProgressBar();
+
+            synth.cancel();
+
+            const text = sentences[index].text;
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            if (selectedVoice) utterance.voice = selectedVoice;
+            utterance.rate = 1.0; 
+            utterance.pitch = 1.05; 
+            
+            // Natural Pacing
+            utterance.onend = function() {
+                if (isPlaying) {
+                    setTimeout(() => {
+                        speakSentence(index + 1);
+                    }, 400); 
+                }
+            };
+            
+            utterance.onerror = function(e) {
+                console.error("Speech error", e);
+                isPlaying = false;
+                updatePlayBtn(false);
+            };
+
+            synth.speak(utterance);
+        }
+
+        function pauseAudio() {
+            isPlaying = false;
+            synth.cancel();
+            updatePlayBtn(false);
+            document.getElementById('visualizer').classList.remove('playing');
+        }
+
+        function restartAudio() {
+            synth.cancel();
+            currentSentenceIndex = 0;
+            updateProgressBar();
+            highlightSentence(-1);
+            if (isPlaying) {
+                setTimeout(() => speakSentence(0), 100);
+            }
+        }
+        
+        function playFromSentence(index) {
+            currentSentenceIndex = index;
+            isPlaying = true;
+            updatePlayBtn(true);
+            document.getElementById('visualizer').classList.add('playing');
+            speakSentence(index);
+        }
+
+        function updatePlayBtn(isPlay) {
+            const icons = [document.getElementById('main-play-icon'), document.getElementById('mobile-play-icon')];
+            icons.forEach(icon => {
+                if (isPlay) {
+                    icon.classList.remove('fa-play');
+                    icon.classList.add('fa-pause');
+                } else {
+                    icon.classList.remove('fa-pause');
+                    icon.classList.add('fa-play');
+                }
+            });
+        }
+
+        function highlightSentence(index) {
+            document.querySelectorAll('.highlight-text').forEach(el => el.classList.remove('highlight-text'));
+            
+            if (index >= 0 && index < sentences.length) {
+                const el = document.getElementById(sentences[index].id);
+                if (el) {
+                    el.classList.add('highlight-text');
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        }
+        
+        function updateProgressBar() {
+             const progress = ((currentSentenceIndex + 1) / sentences.length) * 100;
+             document.getElementById('progress-bar').style.width = `${progress}%`;
+        }
+
+        function toggleText() {
+            textHidden = !textHidden;
+            const overlay = document.getElementById('hidden-overlay');
+            const btn = document.getElementById('toggle-text-btn');
+            
+            if (textHidden) {
+                overlay.classList.remove('hidden');
+                btn.innerHTML = '<i class="fas fa-eye"></i> <span>Show Text</span>';
+                btn.classList.replace('bg-amber-500', 'bg-indigo-500');
+                btn.classList.replace('hover:bg-amber-600', 'hover:bg-indigo-600');
+            } else {
+                overlay.classList.add('hidden');
+                btn.innerHTML = '<i class="fas fa-eye-slash"></i> <span>Hide Text</span>';
+                btn.classList.replace('bg-indigo-500', 'bg-amber-500');
+                btn.classList.replace('hover:bg-indigo-600', 'hover:bg-amber-600');
+            }
+        }
+
+        // --- Revised Interactive Quiz Logic ---
+
+        function renderQuiz() {
+            const form = document.getElementById('quizForm');
+            form.innerHTML = '';
+            
+            quizData.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'bg-white p-5 rounded-xl border border-gray-200 shadow-sm transition';
+                div.innerHTML = `
+                    <p class="font-bold text-gray-800 mb-4 text-lg">${item.q}</p>
+                    <div class="space-y-3" id="${item.id}-options">
+                        ${Object.keys(item.options).map(key => `
+                            <label class="quiz-option flex items-center p-3 rounded-lg cursor-pointer border border-gray-200" id="${item.id}-label-${key}">
+                                <input type="radio" name="${item.id}" value="${key}" class="hidden" onclick="checkAnswer('${item.id}', '${key}')">
+                                <div class="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center mr-3 font-bold text-gray-500 transition-colors" id="${item.id}-icon-${key}">
+                                    ${key}
+                                </div>
+                                <span class="text-gray-700 font-medium">${item.options[key]}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                    <div id="${item.id}-expl" class="explanation-box">
+                        <p class="font-bold mb-1" id="${item.id}-status"></p>
+                        <p>${item.expl}</p>
+                    </div>
+                `;
+                form.appendChild(div);
+            });
+        }
+
+        function checkAnswer(questionId, selectedKey) {
+            const questionObj = quizData.find(q => q.id === questionId);
+            if (!questionObj) return;
+
+            const isCorrect = selectedKey === questionObj.ans;
+            
+            // Visual feedback for selected option
+            const selectedLabel = document.getElementById(`${questionId}-label-${selectedKey}`);
+            const selectedIcon = document.getElementById(`${questionId}-icon-${selectedKey}`);
+            
+            if (isCorrect) {
+                playCorrectSound(); // Sound enabled for Quiz only (internal synth)
+                selectedLabel.classList.add('correct');
+                selectedIcon.classList.add('border-green-500', 'text-green-600', 'bg-green-100');
+                selectedIcon.innerHTML = '<i class="fas fa-check"></i>';
+                userScore += 10;
+            } else {
+                playFailSound(); // Sound enabled for Quiz only (internal synth)
+                selectedLabel.classList.add('wrong');
+                selectedIcon.classList.add('border-red-500', 'text-red-600', 'bg-red-100');
+                selectedIcon.innerHTML = '<i class="fas fa-times"></i>';
+                
+                // Highlight the correct answer
+                const correctLabel = document.getElementById(`${questionId}-label-${questionObj.ans}`);
+                const correctIcon = document.getElementById(`${questionId}-icon-${questionObj.ans}`);
+                correctLabel.classList.add('correct');
+                correctIcon.classList.add('border-green-500', 'text-green-600', 'bg-green-100');
+                correctIcon.innerHTML = '<i class="fas fa-check"></i>';
+            }
+
+            const optionsDiv = document.getElementById(`${questionId}-options`);
+            const inputs = optionsDiv.querySelectorAll('input');
+            const labels = optionsDiv.querySelectorAll('label');
+            
+            inputs.forEach(input => input.disabled = true);
+            labels.forEach(label => label.classList.add('disabled'));
+
+            const explBox = document.getElementById(`${questionId}-expl`);
+            const statusText = document.getElementById(`${questionId}-status`);
+            
+            explBox.style.display = 'block';
+            if (isCorrect) {
+                explBox.style.borderLeftColor = '#10b981';
+                statusText.innerHTML = '<i class="fas fa-check-circle text-green-600"></i> Correct!';
+                statusText.className = "font-bold mb-1 text-green-700";
+            } else {
+                explBox.style.borderLeftColor = '#ef4444';
+                statusText.innerHTML = `<i class="fas fa-times-circle text-red-600"></i> Incorrect. The correct answer is ${questionObj.ans}.`;
+                statusText.className = "font-bold mb-1 text-red-700";
+            }
+        }
+
+        function showFinalScore() {
+            const scoreDisplay = document.getElementById('final-score');
+            const feedback = document.getElementById('feedback-msg');
+            const resultCard = document.getElementById('score-card');
+            
+            resultCard.classList.remove('hidden');
+            scoreDisplay.innerText = `${userScore} / 100`;
+            
+            if (userScore >= 80) {
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#6366f1', '#fbbf24', '#10b981', '#f472b6']
+                });
+                
+                if (userScore === 100) {
+                    setTimeout(() => {
+                        confetti({
+                            particleCount: 100,
+                            angle: 60,
+                            spread: 55,
+                            origin: { x: 0 }
+                        });
+                        confetti({
+                            particleCount: 100,
+                            angle: 120,
+                            spread: 55,
+                            origin: { x: 1 }
+                        });
+                    }, 500);
+                    feedback.innerText = "Perfect! Your listening is amazing!";
+                } else {
+                    feedback.innerText = "Great job! Almost perfect.";
+                }
+            } else if (userScore >= 60) {
+                feedback.innerText = "Good pass. Review the text and try again.";
+            } else {
+                feedback.innerText = "Don't give up! Listen to the audio a few more times.";
+            }
+            
+            resultCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    </script>
+</body>
+</html>
